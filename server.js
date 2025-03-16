@@ -2,14 +2,13 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 
-// Railway 會提供 PORT 環境變數
+// 使用 Railway 提供的 PORT
 const PORT = process.env.PORT || 8080;
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// 當有玩家連線時
 wss.on('connection', (ws) => {
     console.log('✅ 玩家已連線');
 
@@ -30,7 +29,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-// 讓 Railway 正常運行
-server.listen(PORT, () => {
+// 監聽 0.0.0.0 讓外部可訪問
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ WebSocket 伺服器運行在 PORT ${PORT}`);
 });
