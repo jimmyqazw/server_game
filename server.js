@@ -20,13 +20,13 @@ wss.on('connection', (ws) => {
 
         const { roomId, playerId } = message;
 
-        // 檢查是否有 roomId 和 playerId
+        // 確保有房號和玩家 ID
         if (!roomId || !playerId || roomId.length !== 6 || isNaN(roomId)) {
             ws.send(JSON.stringify({ type: 'error', msg: '無效的房號或玩家ID' }));
             return;
         }
 
-        // 加入房間（如果房號不存在，則自動建立）
+        // 加入房間
         if (message.type === 'join') {
             roomManager.addPlayerToRoom(roomId, playerId);
             playerSockets[playerId] = ws; // 記錄玩家的 WebSocket 連線
@@ -37,7 +37,26 @@ wss.on('connection', (ws) => {
             roomManager.updatePlayerInRoom(roomId, playerId, message.x, message.y);
         }
 
-        // 廣播最新狀態，只傳給該房間的玩家
+        // 處理聊天訊息
+        if (message.type === 'sendtext') {
+            const chatMessage = {
+                type: 'chat',
+                roomId,
+                sender: playerId,
+                text: message.text
+            };
+
+            // 只發送給同房間的玩家
+            wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN && Object.values(playerSockets).includes(client)) {
+                    client.send(JSON.stringify(chatMessage));
+                }
+            });
+
+            console.log(`💬 房間 ${roomId} - ${playerId} 說: ${message.text}`);
+        }
+
+        // 廣播最新狀態（同房間）
         const playersInRoom = roomManager.getPlayersInRoom(roomId);
         wss.clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN && Object.values(playerSockets).includes(client)) {
