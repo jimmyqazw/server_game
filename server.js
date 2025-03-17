@@ -9,7 +9,8 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // 記錄玩家 WebSocket 連線
-const playerSockets = {};
+const playerSockets = {}; // { playerId: ws }
+const playerRooms = {}; // { playerId: roomId }
 
 wss.on('connection', (ws) => {
     console.log('✅ 玩家已連線');
@@ -20,7 +21,7 @@ wss.on('connection', (ws) => {
 
         const { roomId, playerId } = message;
 
-        // 確保有房號和玩家 ID
+        // 確保房號和玩家 ID 有效
         if (!roomId || !playerId || roomId.length !== 6 || isNaN(roomId)) {
             ws.send(JSON.stringify({ type: 'error', msg: '無效的房號或玩家ID' }));
             return;
@@ -30,6 +31,7 @@ wss.on('connection', (ws) => {
         if (message.type === 'join') {
             roomManager.addPlayerToRoom(roomId, playerId);
             playerSockets[playerId] = ws; // 記錄玩家的 WebSocket 連線
+            playerRooms[playerId] = roomId; // 記錄玩家所在房間
         }
 
         // 移動玩家
@@ -37,7 +39,7 @@ wss.on('connection', (ws) => {
             roomManager.updatePlayerInRoom(roomId, playerId, message.x, message.y);
         }
 
-        // 處理聊天訊息
+        // 發送聊天訊息
         if (message.type === 'sendtext') {
             const chatMessage = {
                 type: 'chat',
@@ -46,21 +48,21 @@ wss.on('connection', (ws) => {
                 text: message.text
             };
 
-            // 只發送給同房間的玩家
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN && Object.values(playerSockets).includes(client)) {
-                    client.send(JSON.stringify(chatMessage));
+            console.log(`💬 [房間 ${roomId}] ${playerId}: ${message.text}`);
+
+            // 廣播給相同 `roomId` 的所有玩家
+            Object.keys(playerSockets).forEach((id) => {
+                if (playerRooms[id] === roomId) { // 只傳送給相同房間的玩家
+                    playerSockets[id].send(JSON.stringify(chatMessage));
                 }
             });
-
-            console.log(`💬 房間 ${roomId} - ${playerId} 說: ${message.text}`);
         }
 
-        // 廣播最新狀態（同房間）
+        // 廣播最新狀態，只傳給該房間的玩家
         const playersInRoom = roomManager.getPlayersInRoom(roomId);
-        wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN && Object.values(playerSockets).includes(client)) {
-                client.send(JSON.stringify({ type: 'update', roomId, players: playersInRoom }));
+        Object.keys(playerSockets).forEach((id) => {
+            if (playerRooms[id] === roomId) {
+                playerSockets[id].send(JSON.stringify({ type: 'update', roomId, players: playersInRoom }));
             }
         });
     });
@@ -71,11 +73,10 @@ wss.on('connection', (ws) => {
         // 找出哪個玩家斷線
         const playerId = Object.keys(playerSockets).find((id) => playerSockets[id] === ws);
         if (playerId) {
-            // 找出該玩家在哪個房間，然後移除
-            Object.keys(roomManager.getPlayersInRoom()).forEach((roomId) => {
-                roomManager.removePlayerFromRoom(roomId, playerId);
-            });
+            const roomId = playerRooms[playerId];
+            roomManager.removePlayerFromRoom(roomId, playerId);
             delete playerSockets[playerId];
+            delete playerRooms[playerId];
         }
     });
 });
