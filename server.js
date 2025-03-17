@@ -27,12 +27,18 @@ wss.on('connection', (ws) => {
             return;
         }
 
-        // 加入房間
-        if (message.type === 'join') {
+        // 加入房間（避免重複加入）
+        if (message.type === 'join' && !playerRooms[playerId]) {
             roomManager.addPlayerToRoom(roomId, playerId);
-            playerSockets[playerId] = ws; // 記錄玩家的 WebSocket 連線
+            playerSockets[playerId] = ws; // 記錄玩家 WebSocket 連線
             playerRooms[playerId] = roomId; // 記錄玩家所在房間
             console.log(`🎮 玩家 ${playerId} 加入房間 ${roomId}`);
+
+            // 通知房間內其他人有新玩家加入
+            broadcastToRoom(roomId, {
+                type: 'system',
+                message: `🎉 ${playerId} 加入了房間 ${roomId}`
+            });
         }
 
         // 處理聊天訊息
@@ -46,12 +52,8 @@ wss.on('connection', (ws) => {
 
             console.log(`💬 [房間 ${roomId}] ${playerId}: ${message.text}`);
 
-            // 廣播給相同 `roomId` 的所有玩家
-            Object.keys(playerSockets).forEach((id) => {
-                if (playerRooms[id] === roomId) { // 只傳送給相同房間的玩家
-                    playerSockets[id].send(JSON.stringify(chatMessage));
-                }
-            });
+            // 廣播給相同房間的所有玩家
+            broadcastToRoom(roomId, chatMessage);
         }
     });
 
@@ -66,9 +68,24 @@ wss.on('connection', (ws) => {
             delete playerSockets[playerId];
             delete playerRooms[playerId];
             console.log(`🗑️ 玩家 ${playerId} 退出房間 ${roomId}`);
+
+            // 通知房間內其他人該玩家離開
+            broadcastToRoom(roomId, {
+                type: 'system',
+                message: `🚪 ${playerId} 離開了房間 ${roomId}`
+            });
         }
     });
 });
+
+// 廣播訊息給同一個房號內的所有玩家
+function broadcastToRoom(roomId, message) {
+    Object.keys(playerSockets).forEach((id) => {
+        if (playerRooms[id] === roomId) {
+            playerSockets[id].send(JSON.stringify(message));
+        }
+    });
+}
 
 server.listen(PORT, () => {
     console.log(`✅ WebSocket 伺服器運行在 PORT ${PORT}`);
