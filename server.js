@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// 記錄玩家 WebSocket 連線
+// 記錄玩家 WebSocket 連線 & 房間資訊
 const playerSockets = {}; // { playerId: ws }
 const playerRooms = {}; // { playerId: roomId }
 
@@ -32,14 +32,10 @@ wss.on('connection', (ws) => {
             roomManager.addPlayerToRoom(roomId, playerId);
             playerSockets[playerId] = ws; // 記錄玩家的 WebSocket 連線
             playerRooms[playerId] = roomId; // 記錄玩家所在房間
+            console.log(`🎮 玩家 ${playerId} 加入房間 ${roomId}`);
         }
 
-        // 移動玩家
-        if (message.type === 'move') {
-            roomManager.updatePlayerInRoom(roomId, playerId, message.x, message.y);
-        }
-
-        // 發送聊天訊息
+        // 處理聊天訊息
         if (message.type === 'sendtext') {
             const chatMessage = {
                 type: 'chat',
@@ -57,14 +53,6 @@ wss.on('connection', (ws) => {
                 }
             });
         }
-
-        // 廣播最新狀態，只傳給該房間的玩家
-        const playersInRoom = roomManager.getPlayersInRoom(roomId);
-        Object.keys(playerSockets).forEach((id) => {
-            if (playerRooms[id] === roomId) {
-                playerSockets[id].send(JSON.stringify({ type: 'update', roomId, players: playersInRoom }));
-            }
-        });
     });
 
     ws.on('close', () => {
@@ -77,6 +65,7 @@ wss.on('connection', (ws) => {
             roomManager.removePlayerFromRoom(roomId, playerId);
             delete playerSockets[playerId];
             delete playerRooms[playerId];
+            console.log(`🗑️ 玩家 ${playerId} 退出房間 ${roomId}`);
         }
     });
 });
