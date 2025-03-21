@@ -44,6 +44,21 @@ wss.on('connection', (ws) => {
                 }
             });
         }
+        // 處理 "left_release" 指令並廣播給所有人
+        if (command === 'left_release' && playerId) {
+            const leftCommand = {
+                command: "left_release",
+                playerId: playerId
+            };
+            console.log(`↩️ 玩家 ${playerId} 發送 command: left_release`);
+
+            // 廣播給所有連線玩家
+            Object.values(playerSockets).forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(leftCommand));
+                }
+            });
+        }
     });
 
     ws.on('close', () => {
