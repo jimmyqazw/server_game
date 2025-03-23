@@ -23,26 +23,25 @@ wss.on('connection', (ws) => {
 
         const { type, playerId, command } = message;
 
-        // 記錄新連線的玩家 ID
-        if (message.type === 'join' && playerId) {
+        // 處理玩家加入
+        if (type === 'join' && playerId) {
             playerSockets[playerId] = ws;
             console.log(`🎮 玩家已加入: ${playerId}`);
-        
-            // 廣播給其他人這個新玩家加入了
+
+            // 廣播新玩家加入訊息給「其他」玩家（不含自己）
             const newPlayerMessage = {
                 event: "new_player_joined",
                 playerId: playerId
             };
-        
-            Object.values(playerSockets).forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
+
+            Object.entries(playerSockets).forEach(([id, client]) => {
+                if (id !== playerId && client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify(newPlayerMessage));
                 }
             });
         }
-        
 
-        // 處理 "left" 指令並廣播給所有人
+        // 處理 "left" 指令
         if (command === 'left' && playerId) {
             const leftCommand = {
                 command: "left",
@@ -50,32 +49,30 @@ wss.on('connection', (ws) => {
             };
             console.log(`↩️ 玩家 ${playerId} 發送 command: left`);
 
-            // 廣播給所有連線玩家
             Object.values(playerSockets).forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify(leftCommand));
                 }
             });
         }
-        // 處理 "left_release" 指令並廣播給所有人
+
+        // 處理 "left_release" 指令
         if (command === 'left_release' && playerId) {
-            const leftCommand = {
+            const leftReleaseCommand = {
                 command: "left_release",
                 playerId: playerId
             };
             console.log(`↩️ 玩家 ${playerId} 發送 command: left_release`);
 
-            // 廣播給所有連線玩家
             Object.values(playerSockets).forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(leftCommand));
+                    client.send(JSON.stringify(leftReleaseCommand));
                 }
             });
         }
     });
 
     ws.on('close', () => {
-        // 從 playerSockets 移除這個玩家
         const playerId = Object.keys(playerSockets).find(id => playerSockets[id] === ws);
         if (playerId) {
             delete playerSockets[playerId];
