@@ -70,6 +70,35 @@ wss.on('connection', (ws) => {
                 }
             });
         }
+        // 處理 "right" 指令
+        if (command === 'right' && playerId) {
+            const rightCommand = {
+                command: "right",
+                playerId: playerId
+            };
+            console.log(`↩️ 玩家 ${playerId} 發送 command: right`);
+
+            Object.values(playerSockets).forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(rightCommand));
+                }
+            });
+        }
+
+        // 處理 "right_release" 指令
+        if (command === 'right_release' && playerId) {
+            const rightReleaseCommand = {
+                command: "right_release",
+                playerId: playerId
+            };
+            console.log(`↩️ 玩家 ${playerId} 發送 command: right_release`);
+
+            Object.values(playerSockets).forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(rightReleaseCommand));
+                }
+            });
+        }
     });
 
     ws.on('close', () => {
