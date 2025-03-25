@@ -23,12 +23,12 @@ wss.on('connection', (ws) => {
 
         const { type, playerId, command } = message;
 
-        // 處理玩家加入
+        // 玩家加入
         if (type === 'join' && playerId) {
             playerSockets[playerId] = ws;
             console.log(`🎮 玩家已加入: ${playerId}`);
 
-            // 廣播新玩家加入訊息給「其他」玩家（不含自己）
+            // 廣播新玩家加入訊息給其他玩家（不含自己）
             const newPlayerMessage = {
                 event: "new_player_joined",
                 playerId: playerId
@@ -39,65 +39,45 @@ wss.on('connection', (ws) => {
                     client.send(JSON.stringify(newPlayerMessage));
                 }
             });
+
+            // 傳送舊玩家 ID 給這位新玩家
+            const otherPlayerIds = Object.keys(playerSockets).filter(id => id !== playerId);
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    event: "existing_players",
+                    players: otherPlayerIds
+                }));
+            }
         }
 
-        // 處理 "left" 指令
-        if (command === 'left' && playerId) {
-            const leftCommand = {
-                command: "left",
-                playerId: playerId
-            };
+        // 處理動作指令
+        const broadcastCommand = (cmd) => {
+            const msg = { command: cmd, playerId };
+            Object.values(playerSockets).forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(msg));
+                }
+            });
+        };
+
+        if (command === 'left') {
             console.log(`↩️ 玩家 ${playerId} 發送 command: left`);
-
-            Object.values(playerSockets).forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(leftCommand));
-                }
-            });
+            broadcastCommand('left');
         }
 
-        // 處理 "left_release" 指令
-        if (command === 'left_release' && playerId) {
-            const leftReleaseCommand = {
-                command: "left_release",
-                playerId: playerId
-            };
+        if (command === 'left_release') {
             console.log(`↩️ 玩家 ${playerId} 發送 command: left_release`);
-
-            Object.values(playerSockets).forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(leftReleaseCommand));
-                }
-            });
+            broadcastCommand('left_release');
         }
-        // 處理 "right" 指令
-        if (command === 'right' && playerId) {
-            const rightCommand = {
-                command: "right",
-                playerId: playerId
-            };
+
+        if (command === 'right') {
             console.log(`↩️ 玩家 ${playerId} 發送 command: right`);
-
-            Object.values(playerSockets).forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(rightCommand));
-                }
-            });
+            broadcastCommand('right');
         }
 
-        // 處理 "right_release" 指令
-        if (command === 'right_release' && playerId) {
-            const rightReleaseCommand = {
-                command: "right_release",
-                playerId: playerId
-            };
+        if (command === 'right_release') {
             console.log(`↩️ 玩家 ${playerId} 發送 command: right_release`);
-
-            Object.values(playerSockets).forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(rightReleaseCommand));
-                }
-            });
+            broadcastCommand('right_release');
         }
     });
 
